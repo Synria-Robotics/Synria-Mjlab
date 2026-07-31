@@ -1,0 +1,9 @@
+# Conda environment for Synria-Mjlab.
+# Create with:  conda env create -f environment.yml
+# Update with:  conda env update -f environment.yml --prune
+name: mjlab
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip

@@ -23,17 +23,82 @@ Task layout follows [MuJoCo Playground](https://github.com/google-deepmind/mujoc
 
 ## Setup
 
+Requires **Linux + NVIDIA GPU**. Driver CUDA 13.x (e.g. RTX 50-series) works with the default PyPI torch wheels. Assumes this layout:
+
+```
+Synria/
+├── MJlab/
+│   ├── mjlab/
+│   └── Synria-Mjlab/      ← you are here
+└── Synria-Robot-Descriptions/
+```
+
+### 1. Create and activate the conda env
+
 ```bash
 cd Synria-Mjlab
-uv sync --extra cu128
+conda env create -f environment.yml   # first time only
+conda activate mjlab
+```
+
+### 2. Install GPU PyTorch (default PyPI / CUDA 13)
+
+Avoid `--index-url .../cu128` on this machine — `nvidia-cusparselt-cu12` can hash-fail (empty download via NVIDIA mirror). Use default PyPI instead (same as a working `geo` env):
+
+```bash
+pip install "torch>=2.7.0"
+```
+
+Verify GPU:
+
+```bash
+python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.version.cuda)"
+```
+
+### 3. Install MuJoCo, Warp, and MuJoCo-Warp
+
+```bash
+pip install "mujoco~=3.10.0"
+pip install warp-lang
+pip install "git+https://github.com/google-deepmind/mujoco_warp@6f235d4"
+```
+
+If `warp-lang` fails resolving NVIDIA deps, try:
+
+```bash
+pip install warp-lang --extra-index-url https://pypi.nvidia.com
+```
+
+### 4. Install local packages (editable)
+
+```bash
+pip install -e ../mjlab
+pip install -e ../../Synria-Robot-Descriptions
+pip install -e .
+```
+
+### 5. Verify
+
+```bash
+python -c "import mjlab, synriard, synria_mjlab; print('OK')"
+list-envs | grep -E 'Reach|Lift|HandOver|PegInsertion|Velocity|Getup'
+```
+
+### Remove / recreate the env
+
+```bash
+conda deactivate
+conda env remove -n mjlab
 ```
 
 ## Train / play
 
 ```bash
-uv run train Reach-Alicia-D --num_envs 4096
-uv run play Reach-Alicia-D
-uv run train Lift-Alicia-D --num_envs 4096
+conda activate mjlab
+
+train Reach-Alicia-D --env.scene.num-envs 4096
+play Reach-Alicia-D
+train Lift-Alicia-D --env.scene.num-envs 4096
 ```
 
 Assets resolve via:
