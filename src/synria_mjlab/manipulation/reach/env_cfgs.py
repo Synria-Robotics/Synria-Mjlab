@@ -201,8 +201,11 @@ def reach_env_cfg(
     n_min=-0.01, n_max=0.01
   )
   cfg.terminations.pop("ee_ground_collision", None)
+  # lift_cube curriculum targets joint_vel_hinge, which reach removes.
+  cfg.curriculum = {}
 
   if play:
     cfg.commands["reach"].resampling_time_range = (4.0, 4.0)
+    cfg.observations["actor"].enable_corruption = False
 
   return cfg

@@ -8,18 +8,18 @@ Task layout follows [MuJoCo Playground](https://github.com/google-deepmind/mujoc
 
 ## Tasks
 
-| Task ID | Robot | Description |
-|---------|-------|-------------|
-| `Reach-Alicia-D` | Alicia_D | Move EE to target pose |
-| `Reach-Alicia-M` | Alicia_M | Move EE to target pose |
-| `Lift-Alicia-D` | Alicia_D | Lift a cube |
-| `Lift-Alicia-M` | Alicia_M | Lift a cube |
-| `HandOver-Bessica-D` | Bessica_D | Dual-arm object handover |
-| `HandOver-Bessica-M` | Bessica_M | Dual-arm object handover |
-| `PegInsertion-Bessica-D` | Bessica_D | Dual-arm peg insertion |
-| `PegInsertion-Bessica-M` | Bessica_M | Dual-arm peg insertion |
-| `Velocity-Flat-Corina` | Corina | Flat-terrain velocity tracking |
-| `Getup-Flat-Corina` | Corina | Fall recovery on flat terrain |
+| Task ID | Robot | Description | Demo |
+|---------|-------|-------------|------|
+| `Reach-Alicia-D` | Alicia_D | Move EE to target pose | <img src="media/reach_alicia_d.gif" alt="Reach-Alicia-D" width="280"/> |
+| `Reach-Alicia-M` | Alicia_M | Move EE to target pose | |
+| `Lift-Alicia-D` | Alicia_D | Lift a cube | |
+| `Lift-Alicia-M` | Alicia_M | Lift a cube | |
+| `HandOver-Bessica-D` | Bessica_D | Dual-arm object handover | |
+| `HandOver-Bessica-M` | Bessica_M | Dual-arm object handover | |
+| `PegInsertion-Bessica-D` | Bessica_D | Dual-arm peg insertion | |
+| `PegInsertion-Bessica-M` | Bessica_M | Dual-arm peg insertion | |
+| `Velocity-Flat-Corina` | Corina | Flat-terrain velocity tracking | |
+| `Getup-Flat-Corina` | Corina | Fall recovery on flat terrain | |
 
 ## Setup
 
@@ -93,12 +93,19 @@ conda env remove -n mjlab
 
 ## Train / play
 
+See **[docs/train_and_play.md](docs/train_and_play.md)** for full usage (checkpoints, W&B, Viser, video).
+
 ```bash
 conda activate mjlab
 
+# Train
 train Reach-Alicia-D --env.scene.num-envs 4096
-play Reach-Alicia-D
-train Lift-Alicia-D --env.scene.num-envs 4096
+
+# Play (use Viser — safer over SSH / remote DISPLAY than native GLX)
+play Reach-Alicia-D \
+  --checkpoint-file logs/rsl_rl/reach_alicia_d/<run>/model_1499.pt \
+  --viewer viser \
+  --num-envs 1
 ```
 
 Assets resolve via:

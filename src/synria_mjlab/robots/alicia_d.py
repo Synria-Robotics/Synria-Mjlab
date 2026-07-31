@@ -87,7 +87,3 @@ def get_alicia_d_robot_cfg() -> RobotCfg:
     collision_link_pattern=r"link6",
     fingertip_geom_pattern=r"(left|right)_gripper_collision.*",
   )
-
-
-# Silence unused import warning for typing convenience in callers.
-_ = np
