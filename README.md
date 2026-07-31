@@ -11,7 +11,7 @@ Task layout follows [MuJoCo Playground](https://github.com/google-deepmind/mujoc
 | Task ID | Robot | Description | Demo |
 |---------|-------|-------------|------|
 | `Reach-Alicia-D` | Alicia_D | Move EE to target pose | <img src="media/reach_alicia_d.gif" alt="Reach-Alicia-D" width="280"/> |
-| `Reach-Alicia-M` | Alicia_M | Move EE to target pose | |
+| `Reach-Alicia-M` | Alicia_M | Move EE to target pose | <img src="media/reach_alicia_m.gif" alt="Reach-Alicia-M" width="280"/> |
 | `Lift-Alicia-D` | Alicia_D | Lift a cube | |
 | `Lift-Alicia-M` | Alicia_M | Lift a cube | |
 | `HandOver-Bessica-D` | Bessica_D | Dual-arm object handover | |

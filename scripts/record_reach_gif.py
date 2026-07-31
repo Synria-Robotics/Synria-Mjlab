@@ -1,10 +1,13 @@
-"""Record ~5s Reach-Alicia-D play to media/reach_alicia_d.gif (headless).
+"""Record a short Reach play GIF under media/ (headless).
 
-Close-up framing: robots fill the frame; some of the 16 envs may be cropped.
+Examples:
+  python scripts/record_reach_gif.py
+  python scripts/record_reach_gif.py --task Reach-Alicia-M --seconds 3
 """
 
 from __future__ import annotations
 
+import argparse
 import shutil
 import subprocess
 from dataclasses import asdict
@@ -23,13 +26,29 @@ from mjlab.tasks.registry import list_tasks, load_env_cfg, load_rl_cfg, load_run
 from mjlab.viewer import ViewerConfig
 
 ROOT = Path(__file__).resolve().parents[1]
-TASK = "Reach-Alicia-D"
-CKPT = ROOT / "logs/rsl_rl/reach_alicia_d/2026-07-31_14-41-14/model_1499.pt"
-OUT_GIF = ROOT / "media/reach_alicia_d.gif"
-OUT_MP4 = ROOT / "media/reach_alicia_d.mp4"
-NUM_ENVS = 16
-NUM_STEPS = 250  # step_dt=0.02 -> ~5s sim
 DEVICE = "cuda:0"
+NUM_ENVS = 16
+STEP_DT = 0.02
+FRAME_STRIDE = 5
+GIF_FPS = 10
+
+
+def _task_slug(task: str) -> str:
+  return task.lower().replace("-", "_")
+
+
+def _latest_checkpoint(experiment: str) -> Path:
+  root = ROOT / "logs" / "rsl_rl" / experiment
+  runs = sorted(root.glob("*/model_*.pt"))
+  if not runs:
+    raise FileNotFoundError(f"no checkpoints under {root}")
+  # Prefer highest iteration in the newest run directory.
+  newest_run = sorted([p.parent for p in runs], key=lambda p: p.name)[-1]
+  ckpts = sorted(
+    newest_run.glob("model_*.pt"),
+    key=lambda p: int(p.stem.split("_")[1]),
+  )
+  return ckpts[-1]
 
 
 def _zoom_camera(env: ManagerBasedRlEnv) -> None:
@@ -43,7 +62,6 @@ def _zoom_camera(env: ManagerBasedRlEnv) -> None:
   cam.trackbodyid = -1
   cam.fixedcamid = -1
   cam.lookat[:] = (float(o0[0]) + 0.3, float(o0[1]), float(o0[2]) + 0.22)
-  # Tight framing — a few large arms; remaining envs may be cropped.
   cam.distance = 0.55
   cam.elevation = -10.0
   cam.azimuth = 135.0
@@ -57,50 +75,65 @@ def _zoom_camera(env: ManagerBasedRlEnv) -> None:
 
 
 def main() -> None:
-  assert CKPT.is_file(), f"missing checkpoint: {CKPT}"
-  assert TASK in list_tasks(), f"{TASK} not registered"
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--task", default="Reach-Alicia-D")
+  parser.add_argument("--checkpoint", type=Path, default=None)
+  parser.add_argument("--seconds", type=float, default=3.0)
+  parser.add_argument("--num-envs", type=int, default=NUM_ENVS)
+  args = parser.parse_args()
 
-  env_cfg = load_env_cfg(TASK, play=True)
-  env_cfg.scene.num_envs = NUM_ENVS
+  task = args.task
+  slug = _task_slug(task)
+  ckpt = args.checkpoint or _latest_checkpoint(slug)
+  out_gif = ROOT / "media" / f"{slug}.gif"
+  out_mp4 = ROOT / "media" / f"{slug}.mp4"
+  num_steps = max(1, int(round(args.seconds / STEP_DT)))
+
+  assert ckpt.is_file(), f"missing checkpoint: {ckpt}"
+  assert task in list_tasks(), f"{task} not registered"
+  print(f"[record] task={task} ckpt={ckpt} steps={num_steps} (~{args.seconds}s)")
+
+  env_cfg = load_env_cfg(task, play=True)
+  env_cfg.scene.num_envs = args.num_envs
   env_cfg.viewer.height = 720
   env_cfg.viewer.width = 1280
-  env_cfg.viewer.max_extra_envs = NUM_ENVS - 1
+  env_cfg.viewer.max_extra_envs = args.num_envs - 1
   env_cfg.viewer.origin_type = ViewerConfig.OriginType.WORLD
   env_cfg.viewer.distance = 0.55
   env_cfg.viewer.elevation = -10.0
   env_cfg.viewer.azimuth = 135.0
   env_cfg.viewer.fovy = 32.0
-  agent_cfg = load_rl_cfg(TASK)
+  agent_cfg = load_rl_cfg(task)
 
   env = ManagerBasedRlEnv(cfg=env_cfg, device=DEVICE, render_mode="rgb_array")
   _zoom_camera(env)
   env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
 
-  runner_cls = load_runner_cls(TASK) or MjlabOnPolicyRunner
+  runner_cls = load_runner_cls(task) or MjlabOnPolicyRunner
   runner = runner_cls(env, asdict(agent_cfg), device=DEVICE)
-  runner.load(str(CKPT), load_cfg={"actor": True}, strict=True, map_location=DEVICE)
+  runner.load(str(ckpt), load_cfg={"actor": True}, strict=True, map_location=DEVICE)
   policy = runner.get_inference_policy(device=DEVICE)
 
   obs = env.get_observations()
   frames: list[np.ndarray] = []
   with torch.inference_mode():
-    for i in range(NUM_STEPS):
+    for i in range(num_steps):
       actions = policy(obs)
       obs, _, _, _ = env.step(actions)
       frame = env.unwrapped.render()
-      if frame is not None and i % 5 == 0:
+      if frame is not None and i % FRAME_STRIDE == 0:
         frames.append(np.asarray(frame))
 
   env.close()
   print(f"captured {len(frames)} frames")
 
-  OUT_GIF.parent.mkdir(parents=True, exist_ok=True)
-  imageio.mimsave(OUT_MP4, frames, fps=10)
+  out_gif.parent.mkdir(parents=True, exist_ok=True)
+  imageio.mimsave(out_mp4, frames, fps=GIF_FPS)
   if shutil.which("ffmpeg"):
-    palette = OUT_GIF.with_suffix(".palette.png")
+    palette = out_gif.with_suffix(".palette.png")
     subprocess.run(
       [
-        "ffmpeg", "-y", "-i", str(OUT_MP4),
+        "ffmpeg", "-y", "-i", str(out_mp4),
         "-vf", "fps=10,scale=960:-1:flags=lanczos,palettegen=stats_mode=diff",
         str(palette),
       ],
@@ -109,19 +142,19 @@ def main() -> None:
     )
     subprocess.run(
       [
-        "ffmpeg", "-y", "-i", str(OUT_MP4), "-i", str(palette),
+        "ffmpeg", "-y", "-i", str(out_mp4), "-i", str(palette),
         "-lavfi",
         "fps=10,scale=960:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5",
-        str(OUT_GIF),
+        str(out_gif),
       ],
       check=True,
       capture_output=True,
     )
     palette.unlink(missing_ok=True)
   else:
-    imageio.mimsave(OUT_GIF, frames, fps=10, loop=0)
-  print(f"wrote {OUT_GIF} ({OUT_GIF.stat().st_size / 1024:.1f} KiB)")
-  print(f"wrote {OUT_MP4} ({OUT_MP4.stat().st_size / 1024:.1f} KiB)")
+    imageio.mimsave(out_gif, frames, fps=GIF_FPS, loop=0)
+  print(f"wrote {out_gif} ({out_gif.stat().st_size / 1024:.1f} KiB)")
+  print(f"wrote {out_mp4} ({out_mp4.stat().st_size / 1024:.1f} KiB)")
 
 
 if __name__ == "__main__":
