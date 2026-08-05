@@ -52,12 +52,42 @@ def name_body_geoms(spec: mujoco.MjSpec, body_names: tuple[str, ...], suffix: st
         geom.name = f"{body_name}{suffix}" if i == 0 else f"{body_name}{suffix}_{i}"
 
 
+def couple_parallel_gripper_fingers(
+  spec: mujoco.MjSpec,
+  left: str = "left_finger",
+  right: str = "right_finger",
+) -> None:
+  """Couple parallel-jaw fingers with ``left = -right`` (YAM-style).
+
+  Synria Alicia MJCFs expose independent finger joints with opposite slide
+  directions. A single policy action can then open/close both fingers together.
+  """
+  try:
+    spec.joint(left)
+    spec.joint(right)
+  except Exception:
+    return
+
+  for eq in spec.equalities:
+    if eq.type == mujoco.mjtEq.mjEQ_JOINT and {eq.name1, eq.name2} == {left, right}:
+      return
+
+  eq = spec.add_equality(
+    name="gripper_finger_coupling",
+    type=mujoco.mjtEq.mjEQ_JOINT,
+    name1=left,
+    name2=right,
+  )
+  eq.data[:5] = (0.0, -1.0, 0.0, 0.0, 0.0)
+
+
 def load_synriard_spec(
   name: str,
   version: str,
   variant: str | None = None,
   *,
   finger_bodies: tuple[str, ...] = (),
+  couple_gripper: bool = False,
   strip_world: bool = True,
 ) -> mujoco.MjSpec:
   """Load a synriard MJCF and prepare it for mjlab scenes."""
@@ -67,6 +97,8 @@ def load_synriard_spec(
     strip_world_extras(spec)
   if finger_bodies:
     name_body_geoms(spec, finger_bodies)
+  if couple_gripper:
+    couple_parallel_gripper_fingers(spec)
   return spec
 
 

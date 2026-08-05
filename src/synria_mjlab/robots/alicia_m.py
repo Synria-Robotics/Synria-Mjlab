@@ -19,8 +19,9 @@ ARM_ACTUATORS = (
     effort_limit=5.0,
     armature=0.01,
   ),
+  # Only actuate left_finger; right_finger follows via equality constraint.
   BuiltinPositionActuatorCfg(
-    target_names_expr=(r"(left|right)_finger",),
+    target_names_expr=("left_finger",),
     stiffness=200.0,
     damping=10.0,
     effort_limit=5.0,
@@ -68,6 +69,7 @@ def get_spec():
     "v1_2",
     "follower",
     finger_bodies=_FINGER_BODIES,
+    couple_gripper=True,
   )
 
 

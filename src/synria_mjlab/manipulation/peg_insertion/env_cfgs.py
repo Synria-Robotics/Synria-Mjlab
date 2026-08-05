@@ -72,7 +72,7 @@ def peg_insertion_env_cfg(
   )
   cfg.actions["grippers"] = RelativeJointPositionActionCfg(
     entity_name="robot",
-    actuator_names=(robot.gripper_joint_pattern,),
+    actuator_names=(robot.gripper_actuator_pattern,),
     scale=0.02,
   )
 

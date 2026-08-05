@@ -51,23 +51,51 @@ def _latest_checkpoint(experiment: str) -> Path:
   return ckpts[-1]
 
 
-def _zoom_camera(env: ManagerBasedRlEnv) -> None:
-  """Free camera close on env-0; peer envs still drawn and may appear at edges."""
+def _camera_params(task: str) -> dict[str, float]:
+  """Task-specific framing: Reach zooms on the arm; Lift centers cube + gripper."""
+  if task.startswith("Lift-"):
+    return {
+      "lookat_x": 0.35,
+      "lookat_y": 0.0,
+      "lookat_z": 0.15,
+      "distance": 0.9,
+      "elevation": -22.0,
+      "azimuth": 130.0,
+      "fovy": 40.0,
+    }
+  return {
+    "lookat_x": 0.3,
+    "lookat_y": 0.0,
+    "lookat_z": 0.22,
+    "distance": 0.55,
+    "elevation": -10.0,
+    "azimuth": 135.0,
+    "fovy": 32.0,
+  }
+
+
+def _zoom_camera(env: ManagerBasedRlEnv, task: str) -> None:
+  """Free camera on env-0; peer envs still drawn and may appear at edges."""
   renderer = env._offline_renderer
   assert renderer is not None
+  params = _camera_params(task)
   origins = env.scene.env_origins.cpu().numpy()
   o0 = origins[0]
   cam = renderer._cam
   cam.type = mujoco.mjtCamera.mjCAMERA_FREE.value
   cam.trackbodyid = -1
   cam.fixedcamid = -1
-  cam.lookat[:] = (float(o0[0]) + 0.3, float(o0[1]), float(o0[2]) + 0.22)
-  cam.distance = 0.55
-  cam.elevation = -10.0
-  cam.azimuth = 135.0
+  cam.lookat[:] = (
+    float(o0[0]) + params["lookat_x"],
+    float(o0[1]) + params["lookat_y"],
+    float(o0[2]) + params["lookat_z"],
+  )
+  cam.distance = params["distance"]
+  cam.elevation = params["elevation"]
+  cam.azimuth = params["azimuth"]
   renderer._cfg.max_extra_envs = max(0, env.num_envs - 1)
   renderer._extra_env_ids = None
-  renderer._model.vis.global_.fovy = 32.0
+  renderer._model.vis.global_.fovy = params["fovy"]
   print(
     f"[record] lookat={list(cam.lookat)} distance={cam.distance} "
     f"elev={cam.elevation} azim={cam.azimuth}"
@@ -97,16 +125,17 @@ def main() -> None:
   env_cfg.scene.num_envs = args.num_envs
   env_cfg.viewer.height = 720
   env_cfg.viewer.width = 1280
+  cam = _camera_params(task)
   env_cfg.viewer.max_extra_envs = args.num_envs - 1
   env_cfg.viewer.origin_type = ViewerConfig.OriginType.WORLD
-  env_cfg.viewer.distance = 0.55
-  env_cfg.viewer.elevation = -10.0
-  env_cfg.viewer.azimuth = 135.0
-  env_cfg.viewer.fovy = 32.0
+  env_cfg.viewer.distance = cam["distance"]
+  env_cfg.viewer.elevation = cam["elevation"]
+  env_cfg.viewer.azimuth = cam["azimuth"]
+  env_cfg.viewer.fovy = cam["fovy"]
   agent_cfg = load_rl_cfg(task)
 
   env = ManagerBasedRlEnv(cfg=env_cfg, device=DEVICE, render_mode="rgb_array")
-  _zoom_camera(env)
+  _zoom_camera(env, task)
   env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
 
   runner_cls = load_runner_cls(task) or MjlabOnPolicyRunner

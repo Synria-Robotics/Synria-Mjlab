@@ -17,7 +17,7 @@ from synria_mjlab.robots.alicia_d import get_alicia_d_robot_cfg
 
 
 def get_cube_spec(
-  cube_size: float = 0.025,
+  cube_size: float = 0.01,
   mass: float = 0.1,
   rgba: tuple[float, float, float, float] = (0.8, 0.2, 0.2, 1.0),
 ) -> mujoco.MjSpec:
@@ -46,16 +46,17 @@ def lift_env_cfg(
     "robot": robot.entity_cfg,
     "cube": EntityCfg(
       spec_fn=get_cube_spec,
-      init_state=EntityCfg.InitialStateCfg(pos=(0.35, 0.0, 0.05)),
+      # Centered in the tightened Alicia workspace below.
+      init_state=EntityCfg.InitialStateCfg(pos=(0.33, 0.0, 0.05)),
     ),
   }
 
   joint_pos_action = cfg.actions["joint_pos"]
   assert isinstance(joint_pos_action, JointPositionActionCfg)
   joint_pos_action.actuator_names = (
-    f"({robot.arm_joint_pattern}|{robot.gripper_joint_pattern})",
+    f"({robot.arm_joint_pattern}|{robot.gripper_actuator_pattern})",
   )
-  joint_pos_action.scale = 0.5
+  joint_pos_action.scale = robot.lift_joint_action_scales()
 
   cfg.observations["actor"].terms["ee_to_cube"].params["asset_cfg"] = SceneEntityCfg(
     "robot", site_names=(robot.ee_site,)
@@ -76,14 +77,20 @@ def lift_env_cfg(
       sensor.primary.pattern = robot.collision_link_pattern
 
   cfg.viewer.body_name = robot.viewer_body
-  cfg.viewer.lookat = (0.35, 0.0, 0.2)
+  cfg.viewer.lookat = (0.33, 0.0, 0.2)
   cfg.viewer.distance = 1.5
 
+  # Alicia_D reach is limited; keep cube spawn / lift targets closer to the base
+  # so far-object episodes do not dominate training failures.
   lift_cmd = cfg.commands["lift_height"]
   if hasattr(lift_cmd, "object_pose_range") and lift_cmd.object_pose_range is not None:
-    lift_cmd.object_pose_range.x = (0.25, 0.45)
-    lift_cmd.object_pose_range.y = (-0.15, 0.15)
+    lift_cmd.object_pose_range.x = (0.28, 0.38)
+    lift_cmd.object_pose_range.y = (-0.10, 0.10)
     lift_cmd.object_pose_range.z = (0.02, 0.05)
+  if hasattr(lift_cmd, "target_position_range"):
+    lift_cmd.target_position_range.x = (0.28, 0.38)
+    lift_cmd.target_position_range.y = (-0.10, 0.10)
+    lift_cmd.target_position_range.z = (0.18, 0.30)
 
   if play:
     cfg.observations["actor"].enable_corruption = False

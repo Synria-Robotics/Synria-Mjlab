@@ -28,7 +28,7 @@ def handover_env_cfg(
   robot = robot_cfg_fn()
   cfg = lift_env_cfg(play=play, robot_cfg_fn=robot_cfg_fn)
   cfg.scene.entities["cube"] = EntityCfg(
-    spec_fn=lambda: get_cube_spec(cube_size=0.03, mass=0.08),
+    spec_fn=lambda: get_cube_spec(cube_size=0.025, mass=0.08),
     init_state=EntityCfg.InitialStateCfg(pos=(0.35, 0.0, 0.55)),
   )
 
@@ -45,7 +45,7 @@ def handover_env_cfg(
   )
   cfg.actions["grippers"] = RelativeJointPositionActionCfg(
     entity_name="robot",
-    actuator_names=(robot.gripper_joint_pattern,),
+    actuator_names=(robot.gripper_actuator_pattern,),
     scale=0.02,
   )
 

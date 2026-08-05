@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from mjlab.actuator import BuiltinPositionActuatorCfg
 from mjlab.entity import EntityCfg
 from mjlab.envs.mdp.actions import (
   DifferentialIKActionCfg,
@@ -21,6 +22,7 @@ class RobotCfg:
   entity_cfg: EntityCfg
   arm_joint_pattern: str = r"Joint[1-6]|joint[1-6]"
   gripper_joint_pattern: str = r"(left|right)_finger"
+  gripper_actuator_pattern: str = "left_finger"
   ee_site: str = "tool0_site"
   viewer_body: str = "base_link"
   collision_link_pattern: str = r"link6|link_6"
@@ -42,9 +44,30 @@ class RobotCfg:
   def gripper_joint_action_cfg(self, scale: float = 0.02) -> RelativeJointPositionActionCfg:
     return RelativeJointPositionActionCfg(
       entity_name="robot",
-      actuator_names=(self.gripper_joint_pattern,),
+      actuator_names=(self.gripper_actuator_pattern,),
       scale=scale,
     )
+
+  def lift_joint_action_scales(
+    self,
+    arm_scale: float = 0.5,
+    gripper_scale_factor: float = 1.0,
+  ) -> dict[str, float]:
+    """Per-actuator scales for Lift-style absolute joint-position actions."""
+    scales: dict[str, float] = {}
+    actuators = self.entity_cfg.articulation.actuators
+    assert actuators is not None
+    for actuator in actuators:
+      assert isinstance(actuator, BuiltinPositionActuatorCfg)
+      effort = actuator.effort_limit
+      stiffness = actuator.stiffness
+      assert effort is not None and stiffness is not None
+      for pattern in actuator.target_names_expr:
+        if "finger" in pattern:
+          scales[pattern] = gripper_scale_factor * effort / stiffness
+        else:
+          scales[pattern] = arm_scale
+    return scales
 
   def arm_ik_action_cfg(self) -> DifferentialIKActionCfg:
     return DifferentialIKActionCfg(
