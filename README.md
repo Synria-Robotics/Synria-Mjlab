@@ -13,7 +13,7 @@ Task layout follows [MuJoCo Playground](https://github.com/google-deepmind/mujoc
 | `Reach-Alicia-D` | Alicia_D | Move EE to target pose | <img src="media/reach_alicia_d.gif" alt="Reach-Alicia-D" width="280"/> |
 | `Reach-Alicia-M` | Alicia_M | Move EE to target pose | <img src="media/reach_alicia_m.gif" alt="Reach-Alicia-M" width="280"/> |
 | `Lift-Alicia-D` | Alicia_D | Lift a cube | <img src="media/lift_alicia_d.gif" alt="Lift-Alicia-D" width="280"/> |
-| `Lift-Alicia-M` | Alicia_M | Lift a cube | |
+| `Lift-Alicia-M` | Alicia_M | Lift a cube | <img src="media/lift_alicia_m.gif" alt="Lift-Alicia-M" width="280"/> |
 | `HandOver-Bessica-D` | Bessica_D | Dual-arm object handover | |
 | `HandOver-Bessica-M` | Bessica_M | Dual-arm object handover | |
 | `PegInsertion-Bessica-D` | Bessica_D | Dual-arm peg insertion | |

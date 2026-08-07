@@ -33,6 +33,7 @@ class RobotCfg:
   right_ee_site: str = "right_tool0_site"
   left_gripper_joint_pattern: str = r"left_arm_gripper_joint.*"
   right_gripper_joint_pattern: str = r"right_arm_gripper_joint.*"
+  lift_cube_size: float = 0.01
 
   def arm_joint_action_cfg(self, scale: float = 0.05) -> RelativeJointPositionActionCfg:
     return RelativeJointPositionActionCfg(

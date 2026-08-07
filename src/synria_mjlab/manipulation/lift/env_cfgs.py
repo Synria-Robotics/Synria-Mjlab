@@ -45,7 +45,7 @@ def lift_env_cfg(
   cfg.scene.entities = {
     "robot": robot.entity_cfg,
     "cube": EntityCfg(
-      spec_fn=get_cube_spec,
+      spec_fn=lambda size=robot.lift_cube_size: get_cube_spec(cube_size=size),
       # Centered in the tightened Alicia workspace below.
       init_state=EntityCfg.InitialStateCfg(pos=(0.33, 0.0, 0.05)),
     ),

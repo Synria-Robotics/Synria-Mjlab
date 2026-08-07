@@ -90,4 +90,5 @@ def get_alicia_m_robot_cfg() -> RobotCfg:
     viewer_body="base_link",
     collision_link_pattern=r"link6",
     fingertip_geom_pattern=r"link[78]_collision.*",
+    lift_cube_size=0.02,
   )
