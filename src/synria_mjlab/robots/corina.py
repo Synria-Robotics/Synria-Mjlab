@@ -19,23 +19,49 @@ _FOOT_BODIES = (
   "left_leg_link6",
 )
 
+LEG_ACTUATORS = (
+  BuiltinPositionActuatorCfg(
+    target_names_expr=(r".*_leg_joint.*",),
+    stiffness=400.0,
+    damping=20.0,
+    effort_limit=80.0,
+    armature=0.01,
+  ),
+)
+
 ARM_ACTUATORS = (
   BuiltinPositionActuatorCfg(
-    target_names_expr=(r".*_joint.*",),
-    stiffness=60.0,
-    damping=3.0,
-    effort_limit=5.0,
+    target_names_expr=(r".*_hand_joint.*",),
+    stiffness=200.0,
+    damping=10.0,
+    effort_limit=40.0,
     armature=0.01,
   ),
 )
 
 HOME = EntityCfg.InitialStateCfg(
-  pos=(0.0, 0.0, 0.55),
+  pos=(0.0, 0.0, 0.302526),
   joint_pos={
-    "right_leg_joint2": 0.6,
-    "right_leg_joint4": -1.0,
-    "left_leg_joint2": -0.6,
-    "left_leg_joint4": 1.0,
+    # Legs: G1-style semi-crouch (hip pitch / knee / ankle mapped to Corina chain).
+    "right_leg_joint1": -0.691,
+    "right_leg_joint2": 0.0,
+    "right_leg_joint3": 0.0,
+    "right_leg_joint4": 1.21,
+    "right_leg_joint5": -0.5124,
+    "left_leg_joint1": -0.691,
+    "left_leg_joint2": 0.0,
+    "left_leg_joint3": 0.0,
+    "left_leg_joint4": 1.21,
+    "left_leg_joint5": 0.5124,
+    # Arms: forward and slightly inward (Corina shoulder chain != G1, tuned in sim).
+    "left_hand_joint1": 0.0,
+    "left_hand_joint2": -1.57,
+    "left_hand_joint3": 0.0,
+    "left_hand_joint4": -1.05,
+    "right_hand_joint1": 0.0,
+    "right_hand_joint2": -1.57,
+    "right_hand_joint3": 0.0,
+    "right_hand_joint4": -1.05,
     ".*": 0.0,
   },
   joint_vel={".*": 0.0},
@@ -71,7 +97,7 @@ def get_corina_robot_cfg() -> RobotCfg:
       init_state=HOME,
       spec_fn=get_spec,
       articulation=EntityArticulationInfoCfg(
-        actuators=ARM_ACTUATORS,
+        actuators=LEG_ACTUATORS + ARM_ACTUATORS,
         soft_joint_pos_limit_factor=0.9,
       ),
       collisions=(COLLISION,),

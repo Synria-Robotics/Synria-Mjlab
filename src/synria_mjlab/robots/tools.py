@@ -113,9 +113,8 @@ def make_floating_base(spec: mujoco.MjSpec, base_body: str = "base_link") -> Non
 
 def ensure_imu(spec: mujoco.MjSpec, body_name: str = "base_link", site_name: str = "imu") -> None:
   """Attach a minimal IMU site + sensors used by mjlab locomotion tasks."""
-  try:
-    spec.site(site_name)
-  except Exception:
+  site = spec.site(site_name)
+  if site is None:
     body = spec.body(body_name)
     body.add_site(name=site_name, pos=(0.0, 0.0, 0.0), size=(0.01, 0.01, 0.01), group=5)
 
