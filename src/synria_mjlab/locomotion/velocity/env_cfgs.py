@@ -23,6 +23,8 @@ def corina_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   cfg = make_velocity_env_cfg()
   robot = get_corina_entity_cfg()
   cfg.scene.entities = {"robot": robot}
+  # Corina mesh collisions exceed the velocity template default (35).
+  cfg.sim.nconmax = 96
 
   # Flat plane.
   assert cfg.scene.terrain is not None
@@ -59,6 +61,8 @@ def corina_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   cfg.scene.sensors = (feet_ground_cfg,)
   cfg.observations["actor"].terms.pop("height_scan", None)
   cfg.observations["critic"].terms.pop("height_scan", None)
+  cfg.observations["actor"].terms.pop("foot_height", None)
+  cfg.observations["critic"].terms.pop("foot_height", None)
 
   joint_pos_action = cfg.actions["joint_pos"]
   assert isinstance(joint_pos_action, JointPositionActionCfg)
@@ -82,7 +86,7 @@ def corina_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     cfg.rewards["upright"].params.pop("terrain_sensor_names", None)
   if "body_ang_vel" in cfg.rewards:
     cfg.rewards["body_ang_vel"].params["asset_cfg"].body_names = ("base_link",)
-  for reward_name in ("foot_clearance", "foot_slip", "air_time"):
+  for reward_name in ("foot_clearance", "foot_slip", "air_time", "foot_swing_height"):
     cfg.rewards.pop(reward_name, None)
 
   cfg.terminations.pop("illegal_contact", None)
@@ -97,5 +101,9 @@ def corina_flat_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     cfg.observations["actor"].enable_corruption = False
     cfg.events.pop("push_robot", None)
     cfg.curriculum = {}
+
+  if "reset_base" in cfg.events:
+    # HOME.pos z already places feet on the ground; only randomize xy/yaw.
+    cfg.events["reset_base"].params["pose_range"]["z"] = (0.0, 0.0)
 
   return cfg
