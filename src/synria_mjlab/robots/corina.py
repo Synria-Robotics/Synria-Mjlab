@@ -21,35 +21,16 @@ _FOOT_BODIES = (
   "left_leg_link6",
 )
 
-# PD gains derived from the G1 motor model (Kp = J·ω_n², Kd = 2ζJω_n) with
-# ω_n = 10 Hz and ζ = 2.0. Leg armatures are scaled ~0.35× for Corina's lighter
-# mass (~8 kg vs G1 ~35 kg). Arms use the G1 4010 tier (MJCF actuatorfrcrange ±5 N·m).
+# High-gain controller used by the trained recovery and velocity policies.
 _NATURAL_FREQ = 10 * 2.0 * math.pi
 _DAMPING_RATIO = 2.0
-
-# G1 reflected inertias (Unitree motor tiers, from mjlab g1_constants).
-_G1_ARMATURE_7520_14 = 0.010177520
-_G1_ARMATURE_7520_22 = 0.025101925
-_G1_ARMATURE_5020 = 0.007219450
-_G1_ARMATURE_4010 = 0.00425
-
-# Scale leg motor inertia for Corina (~8 kg vs G1 ~35 kg). An extra sim gain
-# multiplier improves free-base default-pose hold until motor specs are available.
-_MASS_SCALE = 0.35
-_SIM_GAIN_MULTIPLIER = 8.0
-_LEG_ARMATURE_SCALE = _MASS_SCALE * _SIM_GAIN_MULTIPLIER
-
-ARMATURE_HIP = _G1_ARMATURE_7520_14 * _LEG_ARMATURE_SCALE
-ARMATURE_KNEE = _G1_ARMATURE_7520_22 * _LEG_ARMATURE_SCALE
-ARMATURE_ANKLE = _G1_ARMATURE_5020 * _LEG_ARMATURE_SCALE
-ARMATURE_ARM = _G1_ARMATURE_4010
-
+ARMATURE_HIP = 0.010177520 * 0.35 * 8.0
+ARMATURE_KNEE = 0.025101925 * 0.35 * 8.0
+ARMATURE_ANKLE = 0.007219450 * 0.35 * 8.0
+ARMATURE_ARM = 0.00425
 
 def _pd_gains(armature: float) -> tuple[float, float]:
-  stiffness = armature * _NATURAL_FREQ**2
-  damping = 2.0 * _DAMPING_RATIO * armature * _NATURAL_FREQ
-  return stiffness, damping
-
+  return armature * _NATURAL_FREQ**2, 2.0 * _DAMPING_RATIO * armature * _NATURAL_FREQ
 
 _STIFFNESS_HIP, _DAMPING_HIP = _pd_gains(ARMATURE_HIP)
 _STIFFNESS_KNEE, _DAMPING_KNEE = _pd_gains(ARMATURE_KNEE)
@@ -77,7 +58,7 @@ ANKLE_ACTUATOR = BuiltinPositionActuatorCfg(
   target_names_expr=(r".*_leg_joint5", r".*_leg_joint6"),
   stiffness=_STIFFNESS_ANKLE,
   damping=_DAMPING_ANKLE,
-  effort_limit=40.0,
+  effort_limit=80.0,
   armature=ARMATURE_ANKLE,
 )
 
@@ -92,19 +73,22 @@ ARM_ACTUATOR = BuiltinPositionActuatorCfg(
 CORINA_ACTUATORS = (HIP_ACTUATOR, KNEE_ACTUATOR, ANKLE_ACTUATOR, ARM_ACTUATOR)
 
 HOME = EntityCfg.InitialStateCfg(
-  pos=(0.0, 0.0, 0.302526),
+  # Corina's straight-leg sole height is 0.3555 m.  Mini-Pi also trains from
+  # an all-zero straight pose; starting from the old crouch left both feet
+  # about 4.5 cm above the plane and injected an impact into every reset.
+  pos=(0.0, 0.0, 0.3555),
   joint_pos={
-    # Legs: G1-style semi-crouch (hip pitch / knee / ankle mapped to Corina chain).
-    "right_leg_joint1": -0.691,
+    # Legs: straight nominal pose, matching the Mini-Pi reference convention.
+    "right_leg_joint1": 0.0,
     "right_leg_joint2": 0.0,
     "right_leg_joint3": 0.0,
-    "right_leg_joint4": 1.21,
-    "right_leg_joint5": -0.5124,
-    "left_leg_joint$": -0.691,
+    "right_leg_joint4": 0.0,
+    "right_leg_joint5": 0.0,
+    "left_leg_joint$": 0.0,
     "left_leg_joint2": 0.0,
     "left_leg_joint3": 0.0,
-    "left_leg_joint4": 1.21,
-    "left_leg_joint5": 0.5124,
+    "left_leg_joint4": 0.0,
+    "left_leg_joint5": 0.0,
     # Arms: forward and slightly inward (Corina shoulder chain != G1, tuned in sim).
     # Use $ on base joints — MJCF names are left/right_hand_joint (no "1" suffix).
     "left_hand_joint2": -1.57,
@@ -123,16 +107,16 @@ HOME = EntityCfg.InitialStateCfg(
 COLLISION = CollisionCfg(
   geom_names_expr=(".*",),
   contype={
-    r"(left|right)_leg_link6_collision.*": 1,
+    r"(left|right)_leg_link6_collision_1": 1,
     ".*": 0,
   },
   conaffinity={
-    r"(left|right)_leg_link6_collision.*": 1,
+    r"(left|right)_leg_link6_collision_1": 1,
     ".*": 0,
   },
-  condim={r"(left|right)_leg_link6_collision.*": 3, ".*": 1},
-  friction={r"(left|right)_leg_link6_collision.*": (0.8,), ".*": (0.6,)},
-  priority={r"(left|right)_leg_link6_collision.*": 1},
+  condim={r"(left|right)_leg_link6_collision_1": 3, ".*": 1},
+  friction={r"(left|right)_leg_link6_collision_1": (0.8,), ".*": (0.6,)},
+  priority={r"(left|right)_leg_link6_collision_1": 1},
 )
 
 
@@ -141,6 +125,16 @@ def get_spec():
   make_floating_base(spec, "base_link")
   ensure_imu(spec, "base_link", "imu")
   name_body_geoms(spec, _FOOT_BODIES)
+  # Dedicated sole sites are required for terrain-height and foot-velocity
+  # rewards; the old fallback IMU site measured the torso instead of the feet.
+  for body_name, site_name, sole_y in zip(
+    _FOOT_BODIES, ("right_foot", "left_foot"), (0.035, -0.035)
+  ):
+    body = spec.body(body_name)
+    if spec.site(site_name) is None:
+      # The mirrored foot bodies use opposite local Y axes toward the sole.
+      # Mesh bounds place the actual contact surface 35 mm from each origin.
+      body.add_site(name=site_name, pos=(0.0, sole_y, 0.0), size=(0.012, 0.012, 0.012), group=5)
   return spec
 
 
